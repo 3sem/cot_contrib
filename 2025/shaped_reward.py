@@ -14,8 +14,8 @@ DFL_BENCH = "cbench-v1/bitcount"
 class BaselineRuntimeWrapper(CompilerEnvWrapper):
     def __init__(self, env: LlvmEnv, baseline_runtime=None):
         super().__init__(env)
-        calc_bl = prepare_baselines(DFL_BENCH.split('/')[-1])
-        self._baseline_runtime = calc_bl[0]
+        calc_bl = prepare_baselines(DFL_BENCH.split('/')[-1], cpu=[7])
+        self._baseline_runtime = [calc_bl[0]] # list is a) just for compatibility with "Runtime" obs; b) for generalization
         self._baseline_size = calc_bl[1]
         print(f"Initial env with Oz baselines: {self._baseline_runtime} 's and {self._baseline_size} bytes")
 
@@ -27,8 +27,8 @@ class BaselineRuntimeWrapper(CompilerEnvWrapper):
 
     def reset(self, *args, **kwargs):
         _obs = super().reset(*args, **kwargs)
-        calc_bl = prepare_baselines(DFL_BENCH.split('/')[-1])
-        self._baseline_runtime = calc_bl[0]#kwargs.get("Runtime", self.env.observation["Runtime"])
+        calc_bl = prepare_baselines(DFL_BENCH.split('/')[-1], cpu=[7])
+        self._baseline_runtime = [calc_bl[0]]#kwargs.get("Runtime", self.env.observation["Runtime"])
         self._baseline_size = calc_bl[1]#kwargs.get("TextSizeBytes", self.env.observation["TextSizeBytes"])
         return _obs
 
