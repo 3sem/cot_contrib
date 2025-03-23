@@ -109,19 +109,52 @@ def prepare_run_data() -> dict:
     return populate_tests()
 
 
-def evaluate(benchmark="crc32"):
-    pt = prepare_run_data()
-    start_time = time.perf_counter()
+import subprocess
+import time
+import psutil
 
-    ret = subprocess.run(pt[benchmark]['cmd'], shell=True, text=True, capture_output=True)
-    
-    end_time = time.perf_counter()
-    elapsed_time = end_time - start_time
-    return ret, elapsed_time
+def evaluate(benchmark="crc32", warmup_cnt=3, repeat_count=5, cpu_affinity=None):
+    """
+    Evaluate the performance of a benchmark with optional CPU affinity.
+
+    :param benchmark: The name of the benchmark to evaluate.
+    :param warmup_cnt: Number of warmup runs to perform before measuring.
+    :param repeat_count: Number of timed runs to perform for measurement.
+    :param cpu_affinity: List of CPU cores to restrict the subprocess to (e.g., [0, 1]).
+    :return: A tuple containing the last subprocess result and the average elapsed time.
+    """
+    pt = prepare_run_data()  # Assume this function prepares the benchmark data
+    cmd = pt[benchmark]['cmd']
+
+    # Warmup phase
+    for _ in range(warmup_cnt):
+        process = subprocess.Popen(cmd, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if cpu_affinity is not None:
+            psutil.Process(process.pid).cpu_affinity(cpu_affinity)
+        process.communicate()  # Wait for the process to complete
+
+    # Measurement phase
+    total_time = 0.0
+    last_result = None
+
+    for _ in range(repeat_count):
+        start_time = time.perf_counter()
+        process = subprocess.Popen(cmd, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if cpu_affinity is not None:
+            psutil.Process(process.pid).cpu_affinity(cpu_affinity)
+        stdout, stderr = process.communicate()  # Wait for the process to complete
+        end_time = time.perf_counter()
+        total_time += (end_time - start_time)
+        last_result = subprocess.CompletedProcess(args=cmd, returncode=process.returncode, stdout=stdout, stderr=stderr)
+
+    # Calculate average elapsed time
+    avg_elapsed_time = total_time / repeat_count
+
+    return last_result, avg_elapsed_time
 
 
-def prepare_baselines(benchmark):
+def prepare_baselines(benchmark, cpu=[7]):
     name, size = make_bc_dump(bench_name=benchmark)
     out_f = compile_bc_to_executable(name)
-    res, runtime = evaluate(benchmark=benchmark)
+    res, runtime = evaluate(benchmark=benchmark, cpu_affinity=cpu)
     return runtime, size
