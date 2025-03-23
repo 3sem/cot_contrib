@@ -5,15 +5,19 @@ from compiler_gym.wrappers import CompilerEnvWrapper
 from compiler_gym.envs import CompilerEnv
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+from compile_cbench import prepare_baselines
 import numpy as np
 import random
 
+DFL_BENCH = "cbench-v1/bitcount"
 
 class BaselineRuntimeWrapper(CompilerEnvWrapper):
-    def __init__(self, env: LlvmEnv):
+    def __init__(self, env: LlvmEnv, baseline_runtime=None):
         super().__init__(env)
-        self._baseline_size = None
-        self._baseline_size = None
+        calc_bl = prepare_baselines(DFL_BENCH.split('/')[-1])
+        self._baseline_runtime = calc_bl[0]
+        self._baseline_size = calc_bl[1]
+        print(f"Initial env with Oz baselines: {self._baseline_runtime} 's and {self._baseline_size} bytes")
 
     def calc_baselines(self):
         self.env.reset()
@@ -23,16 +27,11 @@ class BaselineRuntimeWrapper(CompilerEnvWrapper):
 
     def reset(self, *args, **kwargs):
         _obs = super().reset(*args, **kwargs)
-        self._baseline_runtime = self.env.observation["Runtime"]
-        self._baseline_size = self.env.observation["TextSizeBytes"]
+        calc_bl = prepare_baselines(DFL_BENCH.split('/')[-1])
+        self._baseline_runtime = calc_bl[0]#kwargs.get("Runtime", self.env.observation["Runtime"])
+        self._baseline_size = calc_bl[1]#kwargs.get("TextSizeBytes", self.env.observation["TextSizeBytes"])
         return _obs
 
-def mock_reward(env, baseline_runtime=0., runtime=0., penalty_factor=0.5):
-    #text_file_size = env.observation["ObjectTextSizeBytes"]
-    #text_file_size_oz = env.observation["ObjectTextSizeOz"]
-    print(f"==============================Arguments: {baseline_runtime, runtime, penalty_factor}")
-    #print(f"==============================Vars: {text_file_size}")
-    return (baseline_runtime - runtime) * penalty_factor
 
 def penaltized_reward_function(env, baseline_runtime=0., runtime=0., 
                                 
@@ -63,7 +62,7 @@ def penaltized_reward_function(env, baseline_runtime=0., runtime=0.,
 # Function to create and wrap the environment
 def make_env(reward_func=penaltized_reward_function,
              max_episode_steps=200, 
-             benchmark="cbench-v1/bzip2",
+             benchmark=DFL_BENCH,
              observation_space="Autophase"):
     
     env = compiler_gym.make("llvm-v0", benchmark=benchmark, observation_space=observation_space)
