@@ -1,6 +1,18 @@
 Here's a more "textbook" implementation of an Actor-Critic method with Lagrangian optimization for constrained RL. This version includes proper separation of components, Generalized Advantage Estimation (GAE), and a more standard Lagrangian update:
 
 ```python
+# Current: Combined policy and value
+# Improved: Explicit separation
+class PolicyNetwork(nn.Module):
+    def forward(self, state):
+        return action_distribution, entropy
+
+class ValueNetwork(nn.Module):
+    def forward(self, state):
+        return state_value
+```
+
+```python
 def update(self):
     """Performs a constrained policy update using Actor-Critic with Lagrangian optimization"""
     
